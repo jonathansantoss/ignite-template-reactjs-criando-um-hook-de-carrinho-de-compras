@@ -1,3 +1,4 @@
+import { AxiosResponse } from 'axios';
 import {
   createContext,
   ReactNode,
@@ -6,7 +7,7 @@ import {
 } from 'react';
 import { toast } from 'react-toastify';
 import { api } from '../services/api';
-import { Product, Stock } from '../types';
+import { Product } from '../types';
 
 interface CartProviderProps {
   children: ReactNode;
@@ -40,7 +41,6 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
 
     return [];
   });
-  const [stock, setStock] = useState<Stock[]>([]);
 
   const addProduct = async (productId: number) => {
     try {
@@ -50,21 +50,13 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
       const product = cart.filter((item) => item.id === productId);
       response.data.amount = 1;
 
-      if (product[0] !== undefined) {
-        if ((stocks.data.amount - product[0].amount) <= 0) {
-          toast.error("Quantidade solicitada fora de estoque")
-          return;
-        }
-      }
+      if (isProductUndefined(product, stocks))
+        return;
+
       if (cart.length < 1) {
         await setCart([response.data]);
       } else if (product.length >= 1) {
-        const carts = cart.map((item) => {
-          if (item.id === productId) {
-            item.amount += 1;
-          }
-          return item;
-        })
+        const carts = cart.map((item) => icrementAmount(productId, item))
         await setCart([...carts]);
       } else {
         await setCart([...cart, response.data]);
@@ -73,7 +65,7 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
 
       localStorage.setItem('@RocketShoes:cart', JSON.stringify(cart))
       toast.success("Adicionado com sucesso!");
-    } catch (error) {
+    } catch {
       toast.error('Erro na adição do produto');
     }
   };
@@ -139,6 +131,22 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
       {children}
     </CartContext.Provider>
   );
+}
+
+function icrementAmount(productId: number, product: Product) {
+  if (product.id === productId) {
+    product.amount += 1;
+  }
+  return product;
+}
+
+function isProductUndefined(product: Product[], stocks: AxiosResponse<any>) {
+  if (product[0] !== undefined) {
+    if ((stocks.data.amount - product[0].amount) <= 0) {
+      toast.error("Quantidade solicitada fora de estoque")
+      return true;
+    }
+  }
 }
 
 export function useCart(): CartContextData {
